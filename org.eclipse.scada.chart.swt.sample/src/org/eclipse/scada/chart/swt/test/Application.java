@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2011, 2012 TH4 SYSTEMS GmbH and others.
+ * Copyright (c) 2011, 2014 TH4 SYSTEMS GmbH and others.
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -7,14 +7,16 @@
  *
  * Contributors:
  *     TH4 SYSTEMS GmbH - initial API and implementation
+ *     IBH SYSTEMS GmbH - bug fixes
  *******************************************************************************/
 package org.eclipse.scada.chart.swt.test;
 
+import java.util.Arrays;
+
+import org.eclipse.core.databinding.observable.Observables;
+import org.eclipse.core.databinding.observable.list.IObservableList;
 import org.eclipse.equinox.app.IApplication;
 import org.eclipse.equinox.app.IApplicationContext;
-import org.eclipse.jface.resource.JFaceResources;
-import org.eclipse.jface.resource.LocalResourceManager;
-import org.eclipse.jface.resource.ResourceManager;
 import org.eclipse.scada.chart.AsyncFunctionSeriesData;
 import org.eclipse.scada.chart.DataEntry;
 import org.eclipse.scada.chart.Realm;
@@ -82,8 +84,6 @@ public class Application implements IApplication
         */
         y.setLabel ( "Value" );
 
-        final ResourceManager resourceManager = new LocalResourceManager ( JFaceResources.getResources () );
-
         final Realm realm = new DisplayRealm ( Display.getDefault () );
 
         final WritableSeries series1 = new WritableSeries ( realm, x, y );
@@ -104,7 +104,7 @@ public class Application implements IApplication
         };
 
         final LinearRenderer series1Renderer = new LinearRenderer ( chart.getChartRenderer (), series1 );
-        series1Renderer.setLineColor ( resourceManager.createColor ( new RGB ( 255, 0, 0 ) ) );
+        series1Renderer.setLineColor ( new RGB ( 255, 0, 0 ) );
         chart.getChartRenderer ().addRenderer ( series1Renderer );
 
         chart.getChartRenderer ().addRenderer ( new LinearRenderer ( chart.getChartRenderer (), series4 ) );
@@ -118,9 +118,12 @@ public class Application implements IApplication
         x.setMinMax ( series1.getData ().getMinTimestamp (), series1.getData ().getMaxTimestamp () );
         y.setMinMax ( series1.getData ().getMinValue (), series1.getData ().getMaxValue () );
 
-        new MouseWheelZoomer ( chart.getChartRenderer (), x, y );
-        new MouseTransformer ( chart.getChartRenderer (), x, y );
-        new MouseDragZoomer ( chart.getChartRenderer (), x, y );
+        final IObservableList xs = Observables.staticObservableList ( Arrays.asList ( x ) );
+        final IObservableList ys = Observables.staticObservableList ( Arrays.asList ( y ) );
+
+        new MouseWheelZoomer ( chart.getChartRenderer (), xs, ys );
+        new MouseTransformer ( chart.getChartRenderer (), xs, ys );
+        new MouseDragZoomer ( chart.getChartRenderer (), xs, ys );
 
         // add new renderers
 

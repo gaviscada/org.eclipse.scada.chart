@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2011, 2012 TH4 SYSTEMS GmbH and others.
+ * Copyright (c) 2011, 2014 TH4 SYSTEMS GmbH and others.
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -7,18 +7,20 @@
  *
  * Contributors:
  *     TH4 SYSTEMS GmbH - initial API and implementation
+ *     IBH SYSTEMS GmbH - bug fixes
  *******************************************************************************/
 package org.eclipse.scada.chart.swt.controller;
 
-import org.eclipse.scada.chart.XAxis;
+import org.eclipse.scada.chart.swt.ChartMouseListener.MouseState;
 import org.eclipse.scada.chart.swt.ChartMouseMoveListener;
 import org.eclipse.scada.chart.swt.ChartRenderer;
 import org.eclipse.scada.chart.swt.DisposeListener;
-import org.eclipse.scada.chart.swt.ChartMouseListener.MouseState;
-import org.eclipse.scada.chart.swt.render.AbstractPositionXRuler;
+import org.eclipse.scada.chart.swt.Graphics;
+import org.eclipse.scada.chart.swt.render.AbstractRuler;
+import org.eclipse.swt.graphics.RGB;
 import org.eclipse.swt.graphics.Rectangle;
 
-public class MouseHover extends AbstractPositionXRuler implements ChartMouseMoveListener
+public class MouseHover extends AbstractRuler implements ChartMouseMoveListener
 {
     public static interface Listener
     {
@@ -27,22 +29,11 @@ public class MouseHover extends AbstractPositionXRuler implements ChartMouseMove
 
     private final ChartRenderer chart;
 
-    private final XAxis xAxis;
+    private Integer position;
 
-    private final Listener listener;
-
-    private long position;
-
-    private Rectangle clientRect;
-
-    public MouseHover ( final ChartRenderer chart, final XAxis xAxis, final Listener listener )
+    public MouseHover ( final ChartRenderer chart )
     {
-        super ( xAxis );
-
         this.chart = chart;
-        this.xAxis = xAxis;
-
-        this.listener = listener;
 
         chart.addDisposeListener ( new DisposeListener () {
 
@@ -66,28 +57,41 @@ public class MouseHover extends AbstractPositionXRuler implements ChartMouseMove
     @Override
     public void onMouseMove ( final MouseState state )
     {
-        if ( this.listener != null )
+        final Rectangle rect = this.chart.getClientAreaProxy ().getClientRectangle ();
+
+        final int x = state.x;
+        final int y = state.y;
+
+        this.position = null;
+
+        if ( x < rect.x || x > rect.x + rect.width )
         {
-            this.position = this.xAxis.translateToValue ( this.clientRect.width, state.x - this.clientRect.x );
-            this.listener.mouseMove ( state, this.position );
-            if ( this.visible )
-            {
-                this.chart.redraw ();
-            }
+            return;
+        }
+        if ( y < rect.y || y > rect.y + rect.height )
+        {
+            return;
+        }
+
+        this.position = x;
+
+        if ( this.visible )
+        {
+            this.chart.refresh ();
         }
     }
 
     @Override
-    public Long getPosition ()
+    protected void doRender ( final Graphics g, final Rectangle clientRectangle )
     {
-        return this.position;
-    }
+        if ( this.position == null )
+        {
+            return;
+        }
 
-    @Override
-    public Rectangle resize ( final Rectangle clientRectangle )
-    {
-        this.clientRect = clientRectangle;
-        return super.resize ( clientRectangle );
+        final int x = this.position;
+        g.setForeground ( new RGB ( 0, 0, 0 ) );
+        g.drawLine ( x, clientRectangle.y, x, clientRectangle.y + clientRectangle.height );
     }
 
 }

@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2011, 2012 TH4 SYSTEMS GmbH and others.
+ * Copyright (c) 2011, 2014 TH4 SYSTEMS GmbH and others.
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -7,9 +7,11 @@
  *
  * Contributors:
  *     TH4 SYSTEMS GmbH - initial API and implementation
+ *     IBH SYSTEMS GmbH - bug fixes
  *******************************************************************************/
 package org.eclipse.scada.chart.swt.controller;
 
+import org.eclipse.core.databinding.observable.list.IObservableList;
 import org.eclipse.scada.chart.XAxis;
 import org.eclipse.scada.chart.YAxis;
 import org.eclipse.scada.chart.swt.ChartMouseListener;
@@ -19,7 +21,10 @@ import org.eclipse.scada.chart.swt.DisposeListener;
 import org.eclipse.swt.SWT;
 import org.eclipse.swt.graphics.Rectangle;
 
-public class MouseTransformer implements ChartMouseListener, ChartMouseMoveListener
+/**
+ * This class allows to pan the chart area, moving into all directions
+ */
+public class MouseTransformer extends AbstractMouseHandler implements ChartMouseListener, ChartMouseMoveListener
 {
     private boolean active;
 
@@ -29,15 +34,11 @@ public class MouseTransformer implements ChartMouseListener, ChartMouseMoveListe
 
     private final ChartRenderer chartArea;
 
-    private final XAxis xAxis;
-
-    private final YAxis yAxis;
-
-    public MouseTransformer ( final ChartRenderer chartArea, final XAxis xAxis, final YAxis yAxis )
+    public MouseTransformer ( final ChartRenderer chartArea, final IObservableList/*XAxis*/xAxis, final IObservableList/*YAxis*/yAxis )
     {
+        super ( xAxis, yAxis );
+
         this.chartArea = chartArea;
-        this.xAxis = xAxis;
-        this.yAxis = yAxis;
 
         chartArea.addDisposeListener ( new DisposeListener () {
 
@@ -71,6 +72,20 @@ public class MouseTransformer implements ChartMouseListener, ChartMouseMoveListe
             return;
         }
 
+        final Rectangle rect = this.chartArea.getClientAreaProxy ().getClientRectangle ();
+
+        // check if we are outside the chart area
+        if ( e.x < rect.x || e.x > rect.x + rect.width )
+        {
+            return;
+        }
+        if ( e.y < rect.y || e.y > rect.y + rect.height )
+        {
+            return;
+        }
+
+        // now start dragging
+
         this.active = true;
 
         this.startX = e.x;
@@ -99,20 +114,39 @@ public class MouseTransformer implements ChartMouseListener, ChartMouseMoveListe
 
         final Rectangle rect = this.chartArea.getClientAreaProxy ().getClientRectangle ();
         boolean update = false;
+
+        this.chartArea.setStale ( true );
+
         if ( rect.width > 0 )
         {
-            this.xAxis.transform ( diffX, rect.width );
+            processX ( new AxisFunction<XAxis> () {
+
+                @Override
+                public void process ( final XAxis axis )
+                {
+                    axis.transform ( diffX, rect.width );
+                }
+            } );
             update = true;
         }
         if ( rect.height > 0 )
         {
-            this.yAxis.transform ( diffY, rect.height );
+            processY ( new AxisFunction<YAxis> () {
+
+                @Override
+                public void process ( final YAxis axis )
+                {
+                    axis.transform ( diffY, rect.height );
+                }
+            } );
             update = true;
         }
 
+        this.chartArea.setStale ( false );
+
         if ( update )
         {
-            this.chartArea.redraw ();
+            // this.chartArea.redraw ();
         }
     }
 

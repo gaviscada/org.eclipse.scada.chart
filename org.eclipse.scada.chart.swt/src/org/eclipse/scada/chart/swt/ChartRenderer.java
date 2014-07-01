@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2011, 2012 TH4 SYSTEMS GmbH and others.
+ * Copyright (c) 2011, 2014 TH4 SYSTEMS GmbH and others.
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -7,6 +7,7 @@
  *
  * Contributors:
  *     TH4 SYSTEMS GmbH - initial API and implementation
+ *     IBH SYSTEMS GmbH - allow re-layouting, adding legend
  *******************************************************************************/
 package org.eclipse.scada.chart.swt;
 
@@ -18,15 +19,16 @@ import java.util.LinkedList;
 import java.util.List;
 import java.util.Set;
 
+import org.eclipse.jface.resource.ResourceManager;
 import org.eclipse.jface.util.SafeRunnable;
+import org.eclipse.scada.chart.Realm;
 import org.eclipse.scada.chart.swt.render.Renderer;
 import org.eclipse.swt.dnd.DropTarget;
 import org.eclipse.swt.dnd.DropTargetAdapter;
 import org.eclipse.swt.dnd.Transfer;
 import org.eclipse.swt.events.MouseWheelListener;
-import org.eclipse.swt.graphics.Color;
+import org.eclipse.swt.graphics.RGB;
 import org.eclipse.swt.graphics.Rectangle;
-import org.eclipse.swt.widgets.Display;
 
 public abstract class ChartRenderer
 {
@@ -68,7 +70,6 @@ public abstract class ChartRenderer
 
     public static class SizeRenderProxy implements Renderer
     {
-
         private Rectangle clientRectangle;
 
         @Override
@@ -77,7 +78,7 @@ public abstract class ChartRenderer
         }
 
         @Override
-        public Rectangle resize ( final Rectangle clientRectangle )
+        public Rectangle resize ( final ResourceManager resourceManager, final Rectangle clientRectangle )
         {
             this.clientRectangle = clientRectangle;
             return null;
@@ -99,34 +100,60 @@ public abstract class ChartRenderer
 
     private final SizeRenderProxy clientAreaProxy;
 
-    public ChartRenderer ()
+    private Rectangle clientRectangle;
+
+    private final Set<DisposeListener> disposeListeners = new LinkedHashSet<DisposeListener> ();
+
+    private RGB background;
+
+    private final ResourceManager resourceManager;
+
+    public ChartRenderer ( final ResourceManager resourceManager )
     {
+        this.resourceManager = resourceManager;
         this.clientAreaProxy = new SizeRenderProxy ();
         this.renderers.add ( new RendererEntry ( this.clientAreaProxy, 0 ) );
     }
 
-    public void resizeAll ( Rectangle clientRectangle )
+    public void relayout ()
     {
+        if ( this.stale )
+        {
+            this.updatePending = true;
+            return;
+        }
+
+        Rectangle current = this.clientRectangle;
         for ( final RendererEntry renderer : this.renderers )
         {
-            renderer.setBounds ( clientRectangle );
-            final Rectangle newBounds = renderer.getRenderer ().resize ( clientRectangle );
+            renderer.setBounds ( current );
+            final Rectangle newBounds = renderer.getRenderer ().resize ( this.resourceManager, current );
             if ( newBounds != null )
             {
-                clientRectangle = newBounds;
+                current = newBounds;
             }
-
         }
+    }
+
+    public void resizeAll ( final Rectangle clientRectangle )
+    {
+        this.clientRectangle = clientRectangle;
+        relayout ();
     }
 
     protected void checkWidget ()
     {
     }
 
-    public abstract void redraw ();
+    protected abstract void redraw ();
 
     public abstract Rectangle getClientArea ();
 
+    /**
+     * Get the proxy that be <q>rendered</q> just before the client area
+     * 
+     * @return the instance of the proxy, never <code>null</code>.
+     */
     public SizeRenderProxy getClientAreaProxy ()
     {
         return this.clientAreaProxy;
@@ -186,7 +213,7 @@ public abstract class ChartRenderer
         }
     }
 
-    public void refreshData ()
+    public void refresh ()
     {
         checkWidget ();
         if ( this.stale )
@@ -211,6 +238,7 @@ public abstract class ChartRenderer
         if ( !stale && ( this.updatePending || forceUpdate ) )
         {
             this.updatePending = false;
+            relayout ();
             redraw ();
         }
     }
@@ -236,13 +264,9 @@ public abstract class ChartRenderer
                 };
             } );
         }
+
+        this.resourceManager.dispose ();
     }
-
-    private final Set<DisposeListener> disposeListeners = new LinkedHashSet<DisposeListener> ();
-
-    private Color background;
-
-    private String title;
 
     public void addDisposeListener ( final DisposeListener disposeListener )
     {
@@ -267,11 +291,16 @@ public abstract class ChartRenderer
         return this.disposed;
     }
 
-    public abstract Display getDisplay ();
+    public abstract Realm getRealm ();
 
-    public void setChartBackground ( final Color background )
+    public void setChartBackground ( final RGB background )
     {
         this.background = background;
+    }
+
+    public RGB getChartBackground ()
+    {
+        return this.background;
     }
 
     public void setFocus ()
@@ -282,15 +311,4 @@ public abstract class ChartRenderer
     {
         return null;
     }
-
-    public void setTitle ( final String title )
-    {
-        this.title = title;
-    }
-
-    public String getTitle ()
-    {
-        return this.title;
-    }
-
 }
