@@ -190,6 +190,13 @@ public class YAxisDynamicRenderer extends AbstractRenderer
                 }
 
                 final int ty = y - labelSize.y / 2;
+
+                if ( y < this.rect.y || y > this.rect.y + this.rect.height )
+                {
+                    // out of bounds
+                    continue;
+                }
+
                 g.drawText ( marker.label, tx, ty, null );
             }
         }
@@ -212,7 +219,7 @@ public class YAxisDynamicRenderer extends AbstractRenderer
             }
             else
             {
-                tx = this.rect.x + this.textPadding + this.rect.width - size.x;
+                tx = this.rect.x + this.rect.width - ( size.y + this.textPadding );
             }
             final int ty = this.rect.y + this.rect.height - this.rect.height / 2 + size.x / 2;
             g.drawText ( label, -ty, tx, -90.0f );
@@ -232,9 +239,6 @@ public class YAxisDynamicRenderer extends AbstractRenderer
                 if ( y < this.rect.y || y > this.rect.y + this.rect.height )
                 {
                     // out of bounds
-                    /* We do allow the marker labels to overlap, but the not he marker
-                     * lines
-                     */
                     continue;
                 }
 
